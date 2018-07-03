@@ -187,17 +187,30 @@ impl Ai {
         None
     }
 
+    fn try_to_find_bad_path(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+        None
+    }
+
     fn try_to_move(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: Don't use type names, check its abilities/components
-        match state.parts().meta.get(unit_id).name.as_str() {
+        let cmd = match state.parts().meta.get(unit_id).name.as_str() {
             "imp" | "imp_toxic" => self.try_to_move_closer(state, unit_id),
             // TODO: Summoner should keep a larger distance
             "imp_bomber" | "imp_summoner" => self.try_to_keep_distance(state, unit_id),
             meta => unimplemented!("unknown agent type: {}", meta),
+        };
+        // we can't find any good path, so lets find at least something
+        // that moves this agent towards enemies
+        if cmd.is_none() {
+            self.try_to_find_bad_path(state, unit_id)
+        } else {
+            cmd
         }
     }
 
     pub fn command(&mut self, state: &State) -> Option<Command> {
+        // TODO: shuffle ids?
+        // TODO: action order depends on the distance to a closest enemy
         for unit_id in state::players_agent_ids(state, self.id) {
             if let Some(summon_command) = self.try_summon_imp(state, unit_id) {
                 return Some(summon_command);

@@ -1083,6 +1083,7 @@ pub fn create_objects(state: &mut State, cb: Cb) {
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: -3 });
     create_t(state, cb, p0, "swordsman", PosHex { q: -4, r: 1 });
     create_t(state, cb, p1, "imp", PosHex { q: 4, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 5, r: 0 });
 
     /*
     for &(owner, typename, count) in &[
