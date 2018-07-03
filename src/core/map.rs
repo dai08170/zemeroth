@@ -203,8 +203,8 @@ impl<T: Copy + Default + Debug> HexMap<T> {
         self.radius
     }
 
-    pub fn height(&self) -> i32 {
-        self.radius().0 * 2 + 1
+    pub fn height(&self) -> Distance {
+        Distance(self.radius().0 * 2 + 1)
     }
 
     pub fn iter(&self) -> HexIter {
@@ -321,7 +321,6 @@ mod tests {
     #[test]
     fn test_map_height() {
         let map: HexMap<u8> = HexMap::new(Distance(3));
-        let height = map.height();
-        assert_eq!(height, 3 + 3 + 1);
+        assert_eq!(map.height(), Distance(7));
     }
 }

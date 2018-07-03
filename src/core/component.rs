@@ -12,6 +12,7 @@ pub struct Blocker;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Strength {
     pub base_strength: core::Strength,
+    // TODO: try using serde derive things?
     pub strength: core::Strength,
 }
 
@@ -63,6 +64,8 @@ pub struct Schedule {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+// #[serde(untagged)]
+// #[serde(tag = "type")]
 pub enum Component {
     Pos(Pos),
     Strength(Strength),

@@ -1,9 +1,45 @@
+use core::ability::Ability;
 use core::command::{self, Command};
-use core::map::{self, HexMap};
+use core::map::{self, Distance, HexMap};
 use core::movement::{self, Path, Pathfinder};
 use core::state;
 use core::utils::shuffle_vec;
 use core::{self, check, ObjId, PlayerId, State};
+
+#[derive(Clone, Debug)]
+enum PathfindingResult {
+    Path(Path),
+    CantFindPath,
+    DontNeedToMove,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct DistanceRange {
+    min: Distance,
+    max: Distance,
+}
+
+fn does_agent_have_summon_ability(state: &State, id: ObjId) -> bool {
+    if let Some(abilities) = state.parts().abilities.get_opt(id) {
+        for ability in &abilities.0 {
+            if let Ability::Summon(_) = ability.ability {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn does_agent_have_bomb_ability(state: &State, id: ObjId) -> bool {
+    if let Some(abilities) = state.parts().abilities.get_opt(id) {
+        for ability in &abilities.0 {
+            if let Ability::Bomb(_) = ability.ability {
+                return true;
+            }
+        }
+    }
+    false
+}
 
 #[derive(Debug, Clone)]
 pub struct Ai {
@@ -16,7 +52,7 @@ pub struct Ai {
 }
 
 impl Ai {
-    pub fn new(id: PlayerId, map_radius: map::Distance) -> Self {
+    pub fn new(id: PlayerId, map_radius: Distance) -> Self {
         Self {
             id,
             pathfinder: Pathfinder::new(map_radius),
@@ -50,24 +86,27 @@ impl Ai {
         best_path
     }
 
-    fn find_path_to_preserve_distance(&mut self, state: &State, unit_id: ObjId) -> Option<Path> {
+    fn find_path_to_preserve_distance(
+        &mut self,
+        state: &State,
+        unit_id: ObjId,
+        distance_range: DistanceRange,
+    ) -> Option<Path> {
         // clean the map
         for pos in self.distance_map.iter() {
             self.distance_map.set_tile(pos, false);
         }
 
-        let distance_min = map::Distance(2);
-        let distance_max = map::Distance(4);
         for pos in self.distance_map.iter() {
             for &enemy_id in &state::enemy_agent_ids(state, self.id) {
                 let enemy_pos = state.parts().pos.get(enemy_id).0;
-                if map::distance_hex(pos, enemy_pos) <= distance_max {
+                if map::distance_hex(pos, enemy_pos) <= distance_range.max {
                     self.distance_map.set_tile(pos, true);
                 }
             }
             for &enemy_id in &state::enemy_agent_ids(state, self.id) {
                 let enemy_pos = state.parts().pos.get(enemy_id).0;
-                if map::distance_hex(pos, enemy_pos) <= distance_min {
+                if map::distance_hex(pos, enemy_pos) <= distance_range.min {
                     self.distance_map.set_tile(pos, false);
                 }
             }
@@ -94,9 +133,31 @@ impl Ai {
         best_path
     }
 
+    fn find_any_path(&mut self, state: &State, unit_id: ObjId) -> Option<Path> {
+        self.pathfinder.fill_map(state, unit_id);
+        let mut best_path = None;
+        let mut best_distance = state.map().radius();
+        for pos in self.distance_map.iter() {
+            let path = match self.pathfinder.path(pos) {
+                Some(path) => path,
+                None => continue,
+            };
+            for &enemy_id in &state::enemy_agent_ids(state, self.id) {
+                let enemy_pos = state.parts().pos.get(enemy_id).0;
+                let distance = map::distance_hex(pos, enemy_pos);
+                // TODO: compare path costs
+                if distance <= best_distance {
+                    best_path = Some(path.clone());
+                    best_distance = distance;
+                }
+            }
+        }
+        best_path
+    }
+
     fn try_throw_bomb(&self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: find ability in the parts and use it here:
-        let ability = core::ability::Ability::Bomb(core::ability::Bomb(map::Distance(3)));
+        let ability = core::ability::Ability::Bomb(core::ability::Bomb(Distance(3)));
         for &target_id in &shuffle_vec(state::enemy_agent_ids(state, self.id)) {
             let target_pos = state.parts().pos.get(target_id).0;
             for dir in shuffle_vec(map::dirs().collect()) {
@@ -120,6 +181,7 @@ impl Ai {
     fn try_summon_imp(&self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: find ability in the parts and use it here:
         let ability = core::ability::Ability::Summon(core::ability::Summon(3));
+        // let ability = core::ability::Ability::Summon(core::ability::Summon(5));
         let target_pos = state.parts().pos.get(unit_id).0;
         let command = Command::UseAbility(command::UseAbility {
             id: unit_id,
@@ -145,29 +207,67 @@ impl Ai {
         None
     }
 
-    fn try_to_move_closer(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+    fn try_to_move_closer(&mut self, state: &State, unit_id: ObjId) -> PathfindingResult {
         let path = match self.find_path_to_nearest_enemy(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => return PathfindingResult::CantFindPath,
         };
+        if path.tiles().len() == 1 {
+            return PathfindingResult::DontNeedToMove;
+        }
         let path = match path.truncate(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => return PathfindingResult::CantFindPath,
         };
         let cost = path.cost_for(state, unit_id);
         let agent = state.parts().agent.get(unit_id);
         if agent.move_points < cost {
-            return None;
+            return PathfindingResult::CantFindPath;
         }
-        let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+        let command = Command::MoveTo(command::MoveTo {
+            id: unit_id,
+            path: path.clone(),
+        });
         if check(state, &command).is_ok() {
-            return Some(command);
+            return PathfindingResult::Path(path);
         }
-        None
+        PathfindingResult::CantFindPath
     }
 
-    fn try_to_keep_distance(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
-        let path = match self.find_path_to_preserve_distance(state, unit_id) {
+    fn try_to_keep_distance(
+        &mut self,
+        state: &State,
+        unit_id: ObjId,
+        distance_range: DistanceRange,
+    ) -> PathfindingResult {
+        let path = match self.find_path_to_preserve_distance(state, unit_id, distance_range) {
+            Some(path) => path,
+            None => return PathfindingResult::CantFindPath,
+        };
+        if path.tiles().len() == 1 {
+            return PathfindingResult::DontNeedToMove;
+        }
+        let path = match path.truncate(state, unit_id) {
+            Some(path) => path,
+            None => return PathfindingResult::CantFindPath,
+        };
+        let cost = path.cost_for(state, unit_id);
+        let agent = state.parts().agent.get(unit_id);
+        if agent.move_points < cost {
+            return PathfindingResult::CantFindPath;
+        }
+        let command = Command::MoveTo(command::MoveTo {
+            id: unit_id,
+            path: path.clone(),
+        });
+        if check(state, &command).is_ok() {
+            return PathfindingResult::Path(path);
+        }
+        PathfindingResult::CantFindPath
+    }
+
+    fn try_to_find_bad_path(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+        let path = match self.find_any_path(state, unit_id) {
             Some(path) => path,
             None => return None,
         };
@@ -188,17 +288,39 @@ impl Ai {
     }
 
     fn try_to_move(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
-        // TODO: Don't use type names, check its abilities/components
-        match state.parts().meta.get(unit_id).name.as_str() {
-            "imp" | "imp_toxic" => self.try_to_move_closer(state, unit_id),
-            // TODO: Summoner should keep a larger distance
-            "imp_bomber" | "imp_summoner" => self.try_to_keep_distance(state, unit_id),
-            meta => unimplemented!("unknown agent type: {}", meta),
+        let path_result = if does_agent_have_summon_ability(state, unit_id) {
+            let range = DistanceRange {
+                min: Distance(4),
+                max: Distance(6),
+            };
+            self.try_to_keep_distance(state, unit_id, range)
+        } else if does_agent_have_bomb_ability(state, unit_id) {
+            let range = DistanceRange {
+                min: Distance(2),
+                max: Distance(4),
+            };
+            self.try_to_keep_distance(state, unit_id, range)
+        } else {
+            self.try_to_move_closer(state, unit_id)
+        };
+        match path_result {
+            PathfindingResult::Path(path) => {
+                let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+                if check(state, &command).is_ok() {
+                    Some(command)
+                } else {
+                    None
+                }
+            }
+            PathfindingResult::CantFindPath => self.try_to_find_bad_path(state, unit_id),
+            PathfindingResult::DontNeedToMove => None,
         }
     }
 
     pub fn command(&mut self, state: &State) -> Option<Command> {
-        for unit_id in state::players_agent_ids(state, self.id) {
+        let mut ids = state::players_agent_ids(state, self.id);
+        state::sort_agent_ids_by_distance_to_enemies(state, &mut ids);
+        for unit_id in ids {
             if let Some(summon_command) = self.try_summon_imp(state, unit_id) {
                 return Some(summon_command);
             }

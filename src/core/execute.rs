@@ -949,6 +949,7 @@ fn execute_use_ability_summon(
     command: &command::UseAbility,
     ability: ability::Summon,
 ) -> ExecuteContext {
+    // TODO: find out bombers count
     let mut context = ExecuteContext::default();
     let max_summoned_count = ability.0;
     for pos in state::free_neighbor_positions(state, command.pos, max_summoned_count) {
@@ -1023,6 +1024,7 @@ fn random_free_pos(state: &State) -> Option<PosHex> {
     None
 }
 
+#[allow(dead_code)] // TODO
 fn random_free_sector_pos(state: &State, player_id: PlayerId) -> Option<PosHex> {
     let attempts = 30;
     let radius = state.map().radius();
@@ -1045,7 +1047,7 @@ fn random_free_sector_pos(state: &State, player_id: PlayerId) -> Option<PosHex> 
 }
 
 pub fn create_terrain(state: &mut State) {
-    for _ in 0..15 {
+    for _ in 0..10 {
         let pos = match random_free_pos(state) {
             Some(pos) => pos,
             None => continue,
@@ -1054,8 +1056,56 @@ pub fn create_terrain(state: &mut State) {
     }
 }
 
+#[allow(dead_code)] // TODO
+fn create_t(state: &mut State, cb: Cb, owner: Option<PlayerId>, typename: &str, pos: PosHex) {
+    if let Some(player_id) = owner {
+        state.set_player_id(player_id);
+    }
+    let command = Command::Create(command::Create {
+        prototype: typename.into(),
+        pos,
+        owner,
+    });
+    execute(state, &command, cb).expect("Can't create object");
+}
+
 pub fn create_objects(state: &mut State, cb: Cb) {
     let player_id_initial = state.player_id();
+
+    /*
+    let p0 = Some(PlayerId(0));
+    let p1 = Some(PlayerId(1));
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 5 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 4 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 3 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 2 });
+    // create_t(state, cb, None, "boulder", PosHex { q: -2, r: -1 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 0 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 1 });
+    // create_t(state, cb, p1, "imp_toxic", PosHex { q: -2, r: 1 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: -1 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: -2 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: -3 });
+    create_t(state, cb, p0, "swordsman", PosHex { q: -4, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 4, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 5, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: -1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 4, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 4, r: -1 });
+    */
+
+    /*
+    let p0 = Some(PlayerId(0));
+    let p1 = Some(PlayerId(1));
+    create_t(state, cb, p0, "swordsman", PosHex { q: -2, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 2, r: 0 });
+    create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: -1 });
+    // create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: 1 });
+    */
+
+    // /*
     for &(owner, typename, count) in &[
         (None, "spike_trap", 3),
         (None, "boulder", 7),
@@ -1085,6 +1135,7 @@ pub fn create_objects(state: &mut State, cb: Cb) {
             execute(state, &command, cb).expect("Can't create object");
         }
     }
+    // */
     state.set_player_id(player_id_initial);
 }
 
