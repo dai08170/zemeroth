@@ -94,6 +94,29 @@ impl Ai {
         best_path
     }
 
+    fn find_any_path(&mut self, state: &State, unit_id: ObjId) -> Option<Path> {
+        let distance_min = map::Distance(2);
+        self.pathfinder.fill_map(state, unit_id);
+        let mut best_path = None;
+        let mut best_distance = map::Distance(11); // TODO: radius * 2 + 1?
+        for pos in self.distance_map.iter() {
+            let path = match self.pathfinder.path(pos) {
+                Some(path) => path,
+                None => continue,
+            };
+            for &enemy_id in &state::enemy_agent_ids(state, self.id) {
+                let enemy_pos = state.parts().pos.get(enemy_id).0;
+                let distance = map::distance_hex(pos, enemy_pos);
+                // TODO: compare path costs
+                if distance <= best_distance && distance >= distance_min {
+                    best_path = Some(path.clone());
+                    best_distance = distance;
+                }
+            }
+        }
+        best_path
+    }
+
     fn try_throw_bomb(&self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: find ability in the parts and use it here:
         let ability = core::ability::Ability::Bomb(core::ability::Bomb(map::Distance(3)));
@@ -119,7 +142,8 @@ impl Ai {
 
     fn try_summon_imp(&self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: find ability in the parts and use it here:
-        let ability = core::ability::Ability::Summon(core::ability::Summon(3));
+        // let ability = core::ability::Ability::Summon(core::ability::Summon(3));
+        let ability = core::ability::Ability::Summon(core::ability::Summon(5));
         let target_pos = state.parts().pos.get(unit_id).0;
         let command = Command::UseAbility(command::UseAbility {
             id: unit_id,
@@ -188,6 +212,23 @@ impl Ai {
     }
 
     fn try_to_find_bad_path(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+        let path = match self.find_any_path(state, unit_id) {
+            Some(path) => path,
+            None => return None,
+        };
+        let path = match path.truncate(state, unit_id) {
+            Some(path) => path,
+            None => return None,
+        };
+        let cost = path.cost_for(state, unit_id);
+        let agent = state.parts().agent.get(unit_id);
+        if agent.move_points < cost {
+            return None;
+        }
+        let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+        if check(state, &command).is_ok() {
+            return Some(command);
+        }
         None
     }
 
@@ -201,6 +242,9 @@ impl Ai {
         };
         // we can't find any good path, so lets find at least something
         // that moves this agent towards enemies
+        //
+        // TODO: the problem happens when we decided not to move becauseout current position if fine.
+        //
         if cmd.is_none() {
             self.try_to_find_bad_path(state, unit_id)
         } else {

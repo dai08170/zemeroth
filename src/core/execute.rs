@@ -1046,7 +1046,8 @@ fn random_free_sector_pos(state: &State, player_id: PlayerId) -> Option<PosHex> 
 }
 
 pub fn create_terrain(state: &mut State) {
-    for _ in 0..0 {
+    // for _ in 0..0 {
+    for _ in 0..10 {
         let pos = match random_free_pos(state) {
             Some(pos) => pos,
             None => continue,
@@ -1070,6 +1071,7 @@ fn create_t(state: &mut State, cb: Cb, owner: Option<PlayerId>, typename: &str, 
 pub fn create_objects(state: &mut State, cb: Cb) {
     let player_id_initial = state.player_id();
 
+    // /*
     let p0 = Some(PlayerId(0));
     let p1 = Some(PlayerId(1));
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 5 });
@@ -1077,13 +1079,20 @@ pub fn create_objects(state: &mut State, cb: Cb) {
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 3 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 2 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 0 });
-    create_t(state, cb, p1, "imp_toxic", PosHex { q: -2, r: 1 });
+    create_t(state, cb, None, "boulder", PosHex { q: -2, r: 1 });
+    // create_t(state, cb, p1, "imp_toxic", PosHex { q: -2, r: 1 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: -1 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: -2 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: -3 });
     create_t(state, cb, p0, "swordsman", PosHex { q: -4, r: 1 });
     create_t(state, cb, p1, "imp", PosHex { q: 4, r: 0 });
     create_t(state, cb, p1, "imp", PosHex { q: 5, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: 0 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: -1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 3, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 4, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 4, r: -1 });
+    // */
 
     /*
     for &(owner, typename, count) in &[

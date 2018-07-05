@@ -63,6 +63,8 @@ pub struct Schedule {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+// #[serde(untagged)]
+// #[serde(tag = "type")]
 pub enum Component {
     Pos(Pos),
     Strength(Strength),
