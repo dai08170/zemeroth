@@ -203,6 +203,10 @@ impl<T: Copy + Default + Debug> HexMap<T> {
         self.radius
     }
 
+    pub fn diameter(&self) -> Distance {
+        Distance(self.radius.0 * 2 + 1)
+    }
+
     pub fn height(&self) -> i32 {
         self.radius().0 * 2 + 1
     }

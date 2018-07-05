@@ -142,8 +142,8 @@ impl Ai {
 
     fn try_summon_imp(&self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: find ability in the parts and use it here:
-        // let ability = core::ability::Ability::Summon(core::ability::Summon(3));
-        let ability = core::ability::Ability::Summon(core::ability::Summon(5));
+        let ability = core::ability::Ability::Summon(core::ability::Summon(3));
+        // let ability = core::ability::Ability::Summon(core::ability::Summon(5));
         let target_pos = state.parts().pos.get(unit_id).0;
         let command = Command::UseAbility(command::UseAbility {
             id: unit_id,
@@ -253,9 +253,8 @@ impl Ai {
     }
 
     pub fn command(&mut self, state: &State) -> Option<Command> {
-        // TODO: shuffle ids?
-        // TODO: action order depends on the distance to a closest enemy
-        for unit_id in state::players_agent_ids(state, self.id) {
+        let ids = state::players_agent_ids(state, self.id);
+        for unit_id in sort_by_distance_to_closest_enemy(state, ids) {
             if let Some(summon_command) = self.try_summon_imp(state, unit_id) {
                 return Some(summon_command);
             }
@@ -271,4 +270,21 @@ impl Ai {
         }
         Some(Command::EndTurn(command::EndTurn))
     }
+}
+
+fn sort_by_distance_to_closest_enemy(state: &State, mut ids: Vec<ObjId>) -> Vec<ObjId> {
+    ids.sort_unstable_by_key(|&agent_id| {
+        let agent_player_id = state.parts().belongs_to.get(agent_id).0;
+        let agent_pos = state.parts().pos.get(agent_id).0;
+        let mut min_distance = state.map().diameter();
+        for enemy_id in state::enemy_agent_ids(state, agent_player_id) {
+            let enemy_pos = state.parts().pos.get(enemy_id).0;
+            let distance = map::distance_hex(agent_pos, enemy_pos);
+            if distance < min_distance {
+                min_distance = distance;
+            }
+        }
+        min_distance
+    });
+    ids
 }
