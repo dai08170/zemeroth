@@ -1078,6 +1078,7 @@ pub fn create_objects(state: &mut State, cb: Cb) {
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 4 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 3 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 2 });
+    // create_t(state, cb, None, "boulder", PosHex { q: -2, r: -1 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 0 });
     create_t(state, cb, None, "boulder", PosHex { q: -2, r: 1 });
     // create_t(state, cb, p1, "imp_toxic", PosHex { q: -2, r: 1 });
