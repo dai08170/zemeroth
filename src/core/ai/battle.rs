@@ -289,7 +289,7 @@ impl Ai {
     pub fn command(&mut self, state: &State) -> Option<Command> {
         println!("Ai: command...");
         let mut ids = state::players_agent_ids(state, self.id);
-        sort_agents_by_distance_to_closest_enemy(state, &mut ids);
+        state::sort_agent_ids_by_distance_to_enemies(state, &mut ids);
         for unit_id in ids {
             if let Some(summon_command) = self.try_summon_imp(state, unit_id) {
                 return Some(summon_command);
@@ -306,21 +306,4 @@ impl Ai {
         }
         Some(Command::EndTurn(command::EndTurn))
     }
-}
-
-// TODO: Move to `state.rs`?
-fn sort_agents_by_distance_to_closest_enemy(state: &State, ids: &mut [ObjId]) {
-    ids.sort_unstable_by_key(|&id| {
-        let agent_player_id = state.parts().belongs_to.get(id).0;
-        let agent_pos = state.parts().pos.get(id).0;
-        let mut min_distance = state.map().diameter();
-        for enemy_id in state::enemy_agent_ids(state, agent_player_id) {
-            let enemy_pos = state.parts().pos.get(enemy_id).0;
-            let distance = map::distance_hex(agent_pos, enemy_pos);
-            if distance < min_distance {
-                min_distance = distance;
-            }
-        }
-        min_distance
-    });
 }
