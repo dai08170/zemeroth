@@ -5,6 +5,13 @@ use core::state;
 use core::utils::shuffle_vec;
 use core::{self, check, ObjId, PlayerId, State};
 
+// TODO: rename
+enum XxxPath {
+    Path(Path),
+    CantFindPath,
+    DontNeedToMove,
+}
+
 #[derive(Debug, Clone)]
 pub struct Ai {
     id: PlayerId,
@@ -95,7 +102,8 @@ impl Ai {
     }
 
     fn find_any_path(&mut self, state: &State, unit_id: ObjId) -> Option<Path> {
-        let distance_min = map::Distance(2);
+        // let distance_min = map::Distance(2);
+        // let distance_min = map::Distance(1);
         self.pathfinder.fill_map(state, unit_id);
         let mut best_path = None;
         let mut best_distance = map::Distance(11); // TODO: radius * 2 + 1?
@@ -108,7 +116,8 @@ impl Ai {
                 let enemy_pos = state.parts().pos.get(enemy_id).0;
                 let distance = map::distance_hex(pos, enemy_pos);
                 // TODO: compare path costs
-                if distance <= best_distance && distance >= distance_min {
+                // if distance <= best_distance && distance >= distance_min {
+                if distance <= best_distance {
                     best_path = Some(path.clone());
                     best_distance = distance;
                 }
@@ -169,46 +178,65 @@ impl Ai {
         None
     }
 
-    fn try_to_move_closer(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+    fn try_to_move_closer(&mut self, state: &State, unit_id: ObjId) -> XxxPath {
         let path = match self.find_path_to_nearest_enemy(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => return XxxPath::CantFindPath,
         };
+        println!("try_to_move_closer: path = {:?}", path);
+        if path.tiles().len() == 1 {
+            println!("try_to_move_closer: IDEAL POSITION");
+            return XxxPath::DontNeedToMove;
+        }
         let path = match path.truncate(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => return XxxPath::CantFindPath,
         };
         let cost = path.cost_for(state, unit_id);
         let agent = state.parts().agent.get(unit_id);
         if agent.move_points < cost {
-            return None;
+            return XxxPath::CantFindPath;
         }
-        let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+        let command = Command::MoveTo(command::MoveTo { id: unit_id, path: path.clone() });
         if check(state, &command).is_ok() {
-            return Some(command);
+            return XxxPath::Path(path);
         }
-        None
+        XxxPath::CantFindPath
     }
 
-    fn try_to_keep_distance(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
+    fn try_to_keep_distance(&mut self, state: &State, unit_id: ObjId) -> XxxPath {
         let path = match self.find_path_to_preserve_distance(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => {
+                println!("try_to_keep_distance: find_path_to_preserve_distance: None");
+                return XxxPath::CantFindPath;
+            }
         };
+        println!("try_to_keep_distance: path = {:?}", path);
+        if path.tiles().len() == 1 {
+            println!("try_to_keep_distance: IDEAL POSITION");
+            return XxxPath::DontNeedToMove;
+        }
         let path = match path.truncate(state, unit_id) {
             Some(path) => path,
-            None => return None,
+            None => {
+                println!("try_to_keep_distance: truncate: None");
+                return XxxPath::CantFindPath;
+            }
         };
         let cost = path.cost_for(state, unit_id);
         let agent = state.parts().agent.get(unit_id);
         if agent.move_points < cost {
-            return None;
+            println!("try_to_keep_distance: bad cost");
+            return XxxPath::CantFindPath;
         }
-        let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+        let command = Command::MoveTo(command::MoveTo { id: unit_id, path: path.clone() });
         if check(state, &command).is_ok() {
-            return Some(command);
+            println!("try_to_keep_distance: all is fine");
+            return XxxPath::Path(path);
         }
-        None
+        println!("try_to_keep_distance: check err");
+        XxxPath::CantFindPath
     }
 
     fn try_to_find_bad_path(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
@@ -234,7 +262,7 @@ impl Ai {
 
     fn try_to_move(&mut self, state: &State, unit_id: ObjId) -> Option<Command> {
         // TODO: Don't use type names, check its abilities/components
-        let cmd = match state.parts().meta.get(unit_id).name.as_str() {
+        let path_result = match state.parts().meta.get(unit_id).name.as_str() {
             "imp" | "imp_toxic" => self.try_to_move_closer(state, unit_id),
             // TODO: Summoner should keep a larger distance
             "imp_bomber" | "imp_summoner" => self.try_to_keep_distance(state, unit_id),
@@ -242,17 +270,24 @@ impl Ai {
         };
         // we can't find any good path, so lets find at least something
         // that moves this agent towards enemies
-        //
-        // TODO: the problem happens when we decided not to move becauseout current position if fine.
-        //
-        if cmd.is_none() {
-            self.try_to_find_bad_path(state, unit_id)
-        } else {
-            cmd
+        match path_result {
+            XxxPath::Path(path) => {
+                let command = Command::MoveTo(command::MoveTo { id: unit_id, path });
+                if check(state, &command).is_ok() {
+                    Some(command)
+                } else {
+                    None
+                }
+            }
+            XxxPath::CantFindPath => {
+                self.try_to_find_bad_path(state, unit_id)
+            }
+            XxxPath::DontNeedToMove => None,
         }
     }
 
     pub fn command(&mut self, state: &State) -> Option<Command> {
+        println!("Ai: command...");
         let mut ids = state::players_agent_ids(state, self.id);
         sort_agents_by_distance_to_closest_enemy(state, &mut ids);
         for unit_id in ids {
@@ -273,6 +308,7 @@ impl Ai {
     }
 }
 
+// TODO: Move to `state.rs`?
 fn sort_agents_by_distance_to_closest_enemy(state: &State, ids: &mut [ObjId]) {
     ids.sort_unstable_by_key(|&id| {
         let agent_player_id = state.parts().belongs_to.get(id).0;

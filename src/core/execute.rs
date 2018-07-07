@@ -1023,7 +1023,7 @@ fn random_free_pos(state: &State) -> Option<PosHex> {
     None
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // TODO
 fn random_free_sector_pos(state: &State, player_id: PlayerId) -> Option<PosHex> {
     let attempts = 30;
     let radius = state.map().radius();
@@ -1056,6 +1056,7 @@ pub fn create_terrain(state: &mut State) {
     }
 }
 
+#[allow(dead_code)] // TODO
 fn create_t(state: &mut State, cb: Cb, owner: Option<PlayerId>, typename: &str, pos: PosHex) {
     if let Some(player_id) = owner {
         state.set_player_id(player_id);
@@ -1093,6 +1094,15 @@ pub fn create_objects(state: &mut State, cb: Cb) {
     create_t(state, cb, p1, "imp", PosHex { q: 3, r: 1 });
     create_t(state, cb, p1, "imp", PosHex { q: 4, r: 1 });
     create_t(state, cb, p1, "imp", PosHex { q: 4, r: -1 });
+    */
+
+    /*
+    let p0 = Some(PlayerId(0));
+    let p1 = Some(PlayerId(1));
+    create_t(state, cb, p0, "swordsman", PosHex { q: -2, r: 1 });
+    create_t(state, cb, p1, "imp", PosHex { q: 2, r: 0 });
+    // create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: -1 });
+    // create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: 1 });
     */
 
     // /*
