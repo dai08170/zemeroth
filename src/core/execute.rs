@@ -949,6 +949,7 @@ fn execute_use_ability_summon(
     command: &command::UseAbility,
     ability: ability::Summon,
 ) -> ExecuteContext {
+    // TODO: find out bombers count
     let mut context = ExecuteContext::default();
     let max_summoned_count = ability.0;
     for pos in state::free_neighbor_positions(state, command.pos, max_summoned_count) {
@@ -1046,7 +1047,6 @@ fn random_free_sector_pos(state: &State, player_id: PlayerId) -> Option<PosHex> 
 }
 
 pub fn create_terrain(state: &mut State) {
-    // for _ in 0..0 {
     for _ in 0..10 {
         let pos = match random_free_pos(state) {
             Some(pos) => pos,
@@ -1101,7 +1101,7 @@ pub fn create_objects(state: &mut State, cb: Cb) {
     let p1 = Some(PlayerId(1));
     create_t(state, cb, p0, "swordsman", PosHex { q: -2, r: 1 });
     create_t(state, cb, p1, "imp", PosHex { q: 2, r: 0 });
-    // create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: -1 });
+    create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: -1 });
     // create_t(state, cb, p1, "imp_bomber", PosHex { q: 2, r: 1 });
     */
 

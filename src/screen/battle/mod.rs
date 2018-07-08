@@ -218,6 +218,11 @@ impl Battle {
         let radius = state.map().radius();
         let mut view = BattleView::new(&state, context)?;
         prepare_map_and_state(context, &mut state, &mut view)?;
+        {
+            let action =
+                visualize::screen_text(&mut view, context, Point2::new(-0.7, -0.8), 0.3, "before")?;
+            view.add_action(action);
+        }
         Ok(Self {
             gui,
             font,

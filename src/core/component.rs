@@ -12,6 +12,7 @@ pub struct Blocker;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Strength {
     pub base_strength: core::Strength,
+    // TODO: try using serde derive things?
     pub strength: core::Strength,
 }
 

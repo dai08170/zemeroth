@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ggez::graphics::{Color, Text, Vector2};
+use ggez::graphics::{Color, Point2, Text, Vector2};
 use ggez::nalgebra;
 use ggez::Context;
 use scene::action;
@@ -28,6 +28,23 @@ fn seq(actions: Vec<Box<dyn Action>>) -> Box<dyn Action> {
 
 fn fork(action: Box<dyn Action>) -> Box<dyn Action> {
     action::Fork::new(action).boxed()
+}
+
+pub fn screen_text(
+    view: &mut BattleView,
+    context: &mut Context,
+    point: Point2,
+    height: f32,
+    text: &str,
+) -> ZResult<Box<dyn Action>> {
+    let image = Text::new(context, text, view.font())?.into_inner();
+    let mut sprite = Sprite::from_image(image, height);
+    sprite.set_centered(true);
+    sprite.set_pos(point);
+    let visible = [0.0, 0.0, 0.0, 1.0].into();
+    sprite.set_color(visible);
+    let action_show = action::Show::new(&view.layers().text, &sprite).boxed();
+    Ok(action_show)
 }
 
 pub fn message(
